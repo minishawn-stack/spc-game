@@ -1,441 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Go (Weiqi / Baduk)</title>
+    <style>
+        :root {
+            --board-color: #dcaf6d;
+            --board-line: #3b2314;
+            --slate: #2c3e50;
+        }
 
-<h2 class="sr-only">SPC Game: Catch Defective Products — click products that fall outside control limits</h2>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f3f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
 
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap');
+        h1 {
+            color: var(--slate);
+            margin: 0 0 5px 0;
+            font-weight: 800;
+        }
 
-  #spc-game * { box-sizing: border-box; margin: 0; padding: 0; }
-  #spc-game {
-    font-family: 'Nunito', sans-serif;
-    background: var(--color-background-secondary);
-    border-radius: var(--border-radius-lg);
-    padding: 16px;
-    user-select: none;
-  }
-  #spc-game h1 {
-    font-family: 'Fredoka One', sans-serif;
-    font-size: 22px;
-    font-weight: 400;
-    color: var(--color-text-primary);
-    text-align: center;
-    margin-bottom: 4px;
-    letter-spacing: 0.5px;
-  }
-  .spc-subtitle {
-    text-align: center;
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    margin-bottom: 12px;
-  }
-  .spc-stats {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-    justify-content: center;
-  }
-  .spc-stat {
-    background: var(--color-background-primary);
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: var(--border-radius-md);
-    padding: 6px 14px;
-    text-align: center;
-    min-width: 80px;
-  }
-  .spc-stat-label { font-size: 11px; color: var(--color-text-tertiary); }
-  .spc-stat-value { font-size: 20px; font-weight: 700; color: var(--color-text-primary); font-family: 'Fredoka One', sans-serif; }
-  .spc-stat-value.score { color: #185FA5; }
-  .spc-stat-value.missed { color: #A32D2D; }
-  .spc-stat-value.combo { color: #0F6E56; }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
 
-  #chart-wrap {
-    background: var(--color-background-primary);
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: var(--border-radius-md);
-    padding: 8px 12px 4px;
-    margin-bottom: 10px;
-    position: relative;
-  }
-  #spc-canvas { width: 100%; display: block; }
+        .game-layout {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
 
-  .spc-legend {
-    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
-    font-size: 12px; color: var(--color-text-secondary);
-    margin-bottom: 8px;
-  }
-  .spc-legend span { display: flex; align-items: center; gap: 5px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        @media (max-width: 850px) {
+            .game-layout {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
 
-  #conveyor-wrap {
-    background: var(--color-background-primary);
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: var(--border-radius-md);
-    padding: 8px 12px;
-    margin-bottom: 10px;
-    position: relative;
-    overflow: hidden;
-    height: 100px;
-  }
-  .conveyor-belt {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 18px;
-    background: repeating-linear-gradient(90deg, #888780 0px, #888780 18px, #5F5E5A 18px, #5F5E5A 36px);
-    border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
-    animation: beltMove 0.6s linear infinite;
-  }
-  @keyframes beltMove {
-    from { background-position: 0 0; }
-    to { background-position: -36px 0; }
-  }
-  .product {
-    position: absolute;
-    bottom: 20px;
-    cursor: pointer;
-    transition: transform 0.1s;
-    font-size: 32px;
-    line-height: 1;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.15));
-  }
-  .product:hover { transform: scale(1.15); }
-  .product.defective { animation: wobble 0.4s ease-in-out infinite alternate; }
-  @keyframes wobble { from { rotate: -8deg; } to { rotate: 8deg; } }
-  .product.clicked { animation: pop 0.3s forwards; pointer-events: none; }
-  @keyframes pop { to { transform: scale(2); opacity: 0; } }
+        /* --- GO BOARD --- */
+        .board-container {
+            position: relative;
+            background-color: var(--board-color);
+            padding: 22px; /* Margin around the outer grid line */
+            border-radius: 4px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.3);
+        }
 
-  .hit-feedback {
-    position: absolute; font-size: 13px; font-weight: 700;
-    pointer-events: none; animation: floatUp 0.8s forwards;
-  }
-  @keyframes floatUp { to { transform: translateY(-40px); opacity: 0; } }
+        .go-board {
+            display: grid;
+            grid-template-columns: repeat(18, 25px); /* 18 squares = 19 grid intersections */
+            grid-template-rows: repeat(18, 25px);
+            position: relative;
+        }
 
-  .spc-controls { display: flex; gap: 8px; justify-content: center; }
-  .spc-controls button {
-    font-family: 'Fredoka One', sans-serif;
-    font-size: 15px; font-weight: 400;
-    padding: 8px 20px;
-    border-radius: var(--border-radius-md);
-    border: 0.5px solid var(--color-border-secondary);
-    background: var(--color-background-primary);
-    color: var(--color-text-primary);
-    cursor: pointer;
-  }
-  .spc-controls button:hover { background: var(--color-background-secondary); }
-  .spc-controls button.primary {
-    background: #185FA5; color: #E6F1FB; border-color: #185FA5;
-  }
-  .spc-controls button.primary:hover { background: #0C447C; }
+        /* Draw grid boxes */
+        .grid-square {
+            border-right: 1px solid var(--board-line);
+            border-bottom: 1px solid var(--board-line);
+            box-sizing: border-box;
+            position: relative;
+        }
 
-  #overlay {
-    position: absolute; inset: 0;
-    background: rgba(255,255,255,0.92);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border-radius: var(--border-radius-md);
-    z-index: 10; gap: 8px;
-  }
-  #overlay h2 { font-family: 'Fredoka One', sans-serif; font-size: 22px; color: var(--color-text-primary); }
-  #overlay p { font-size: 13px; color: var(--color-text-secondary); text-align: center; max-width: 220px; }
+        /* Re-draw borders to enclose grid accurately */
+        .grid-square:nth-child(-n+18) { border-top: 1px solid var(--board-line); }
+        .grid-square:nth-child(18n+1) { border-left: 1px solid var(--board-line); }
 
-  .instruction-bar {
-    text-align: center; font-size: 12px; color: var(--color-text-tertiary);
-    margin-bottom: 6px;
-  }
+        /* Star Points (Hoshi) for 19x19 board */
+        .hoshi {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background-color: var(--board-line);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
 
-  #timer-bar-wrap {
-    height: 5px; background: var(--color-background-secondary);
-    border-radius: 3px; margin-bottom: 10px; overflow: hidden;
-  }
-  #timer-bar {
-    height: 100%; border-radius: 3px;
-    background: #185FA5; transition: width 0.2s linear;
-  }
-</style>
+        /* Absolute positioning overlay for standard 19x19 intersections */
+        .intersection-layer {
+            position: absolute;
+            top: 22px;
+            left: 22px;
+            width: calc(100% - 44px);
+            height: calc(100% - 44px);
+            display: grid;
+            grid-template-columns: repeat(19, 25px);
+            grid-template-rows: repeat(19, 25px);
+            pointer-events: none; /* Allows clicking through if necessary */
+        }
 
-<div id="spc-game">
-  <h1>🏭 SPC Defect Catcher</h1>
-  <p class="spc-subtitle">Tap defective products — those outside control limits!</p>
+        .click-target {
+            width: 24px;
+            height: 24px;
+            transform: translate(-12px, -12px); /* Centered directly over intersection */
+            border-radius: 50%;
+            cursor: pointer;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
 
-  <div class="spc-stats">
-    <div class="spc-stat">
-      <div class="spc-stat-label">Score</div>
-      <div class="spc-stat-value score" id="score-val">0</div>
+        /* Hover effect showing translucent preview of current player stone */
+        .click-target:empty:hover::after {
+            content: '';
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            position: absolute;
+            opacity: 0.4;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        body.black-turn .click-target:empty:hover::after { background: #000; }
+        body.white-turn .click-target:empty:hover::after { background: #fff; }
+
+        /* The actual placed Go Stones */
+        .stone {
+            width: 23px;
+            height: 23px;
+            border-radius: 50%;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+            z-index: 2;
+            animation: dropStone 0.1s ease-out;
+        }
+
+        @keyframes dropStone {
+            0% { transform: scale(1.3); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .stone.black {
+            background: radial-gradient(circle at 30% 30%, #444, #111 70%, #000);
+        }
+
+        .stone.white {
+            background: radial-gradient(circle at 30% 30%, #fff, #e0e0e0 60%, #bbb);
+            border: 1px solid #aaa;
+            box-sizing: border-box;
+        }
+
+        /* --- DASHBOARD PANEL --- */
+        .panel {
+            width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .turn-indicator {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: var(--slate);
+        }
+
+        .turn-badge {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .turn-badge.black { background: #000; }
+        .white-turn .turn-badge { background: #fff; border: 1px solid #bbb; }
+
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 6px 0;
+            font-size: 15px;
+            color: #555;
+        }
+
+        .score-val {
+            font-weight: bold;
+            color: #000;
+        }
+
+        .btn {
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            width: 100%;
+        }
+
+        .btn-pass { background-color: #cbd5e1; color: #334155; }
+        .btn-pass:hover { background-color: #b4c6ef; }
+        .btn-reset { background-color: #e2e8f0; color: #64748b; margin-top: auto; }
+        .btn-reset:hover { background-color: #f1f5f9; color: #ef4444; }
+        .btn:active { transform: scale(0.98); }
+
+        .alert-box {
+            color: #ef4444;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            height: 18px;
+        }
+    </style>
+</head>
+<body class="black-turn">
+
+    <h1>Go (囲碁)</h1>
+    <div class="subtitle">Standard 19×19 Landscape Board Game</div>
+
+    <div class="game-layout">
+        <!-- LEFT: Visual Board Canvas Grid -->
+        <div class="board-container">
+            <!-- Background Lines Grid Layout (18x18 squares) -->
+            <div class="go-board" id="visualGrid"></div>
+
+            <!-- Foreground Intersections Layer for placing pieces (19x19 intersections) -->
+            <div class="intersection-layer" id="intersectionLayer"></div>
+        </div>
+
+        <!-- RIGHT: Scoring / Gameplay Dashboard -->
+        <div class="panel">
+            <div class="status-card">
+                <div class="turn-indicator">
+                    <span class="turn-badge"></span>
+                    <span id="turnText">Black's Turn</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;">
+                <div class="score-row">
+                    <span>Black Captures:</span>
+                    <span class="score-val" id="blackCaptures">0</span>
+                </div>
+                <div class="score-row">
+                    <span>White Captures:</span>
+                    <span class="score-val" id="whiteCaptures">0</span>
+                </div>
+            </div>
+
+            <div class="alert-box" id="alertMsg"></div>
+
+            <button class="btn btn-pass" onclick="passTurn()">Pass Turn</button>
+            <button class="btn btn-reset" onclick="resetGame()">Reset Board</button>
+        </div>
     </div>
-    <div class="spc-stat">
-      <div class="spc-stat-label">Missed</div>
-      <div class="spc-stat-value missed" id="missed-val">0</div>
-    </div>
-    <div class="spc-stat">
-      <div class="spc-stat-label">Combo</div>
-      <div class="spc-stat-value combo" id="combo-val">x1</div>
-    </div>
-    <div class="spc-stat">
-      <div class="spc-stat-label">Level</div>
-      <div class="spc-stat-value" id="level-val">1</div>
-    </div>
-  </div>
 
-  <div id="timer-bar-wrap"><div id="timer-bar" style="width:100%"></div></div>
+    <script>
+        const BOARD_SIZE = 19;
+        let currentPlayer = 'B'; // 'B' = Black, 'W' = White
+        let captures = { 'B': 0, 'W': 0 };
+        
+        // 2D Array mapping board state: null = empty, 'B' = Black stone, 'W' = White stone
+        let board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
 
-  <div id="chart-wrap">
-    <canvas id="spc-canvas" height="150"></canvas>
-    <div id="overlay">
-      <span style="font-size:48px">🏭</span>
-      <h2>SPC Defect Catcher</h2>
-      <p>Click defective products on the conveyor!<br>Products outside control limits are defects.</p>
-      <button class="primary" onclick="startGame()" style="margin-top:6px">▶ Start Game</button>
-    </div>
-  </div>
+        // Generate Graphic Background Grid Line Blocks (18x18 grid boxes)
+        const visualGrid = document.getElementById('visualGrid');
+        for (let i = 0; i < 18 * 18; i++) {
+            const square = document.createElement('div');
+            square.classList.add('grid-square');
+            visualGrid.appendChild(square);
+        }
 
-  <div class="spc-legend">
-    <span><span class="dot" style="background:#185FA5"></span>Normal product</span>
-    <span><span class="dot" style="background:#E24B4A"></span>Defective! (click it)</span>
-    <span><span class="dot" style="background:#3B6D11;opacity:0.5"></span>UCL/LCL limits</span>
-  </div>
+        // Standard 19x19 Hoshi (Star Point) coordinates
+        const starPoints = [
+            [3,3], [3,9], [3,15],
+            [9,3], [9,9], [9,15],
+            [15,3], [15,9], [15,15]
+        ];
 
-  <p class="instruction-bar" id="instruction">Defective products wobble — click them before they pass!</p>
+        // Draw Hoshi dots accurately relative to scaling
+        starPoints.forEach(([r, c]) => {
+            const dot = document.createElement('div');
+            dot.classList.add('hoshi');
+            dot.style.top = `${r * 25}px`;
+            dot.style.left = `${c * 25}px`;
+            visualGrid.appendChild(dot);
+        });
 
-  <div id="conveyor-wrap">
-    <div class="conveyor-belt"></div>
-    <div id="products-container"></div>
-  </div>
+        // Initialize click-sensitive intersections layer layout
+        const layer = document.getElementById('intersectionLayer');
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                const target = document.createElement('div');
+                target.classList.add('click-target');
+                target.id = `cell-${r}-${c}`;
+                // Keep inline style grid alignments consistent
+                target.style.gridRowStart = r + 1;
+                target.style.gridColumnStart = c + 1;
+                
+                target.addEventListener('click', () => makeMove(r, c));
+                layer.appendChild(target);
+            }
+        }
 
-  <div class="spc-controls">
-    <button onclick="sendPrompt('Explain SPC control limits and how to detect defects')">Learn SPC ↗</button>
-    <button class="primary" id="restart-btn" onclick="startGame()" style="display:none">🔄 Play Again</button>
-  </div>
-</div>
+        function makeMove(r, c) {
+            clearAlert();
+            if (board[r][c] !== null) return;
 
-<script>
-const MEAN = 50, SIGMA = 8;
-const UCL = MEAN + 3*SIGMA, LCL = MEAN - 3*SIGMA;
-const WARN_U = MEAN + 2*SIGMA, WARN_L = MEAN - 2*SIGMA;
-const GAME_DURATION = 45;
-const EMOJIS_OK = ['📦','🧴','🔩','⚙️','🧊','🪣','🎁'];
-const EMOJIS_BAD = ['💥','🗑️','⚠️','🔴','💢','❌','🤢'];
+            // 1. Hypothetically place stone
+            board[r][c] = currentPlayer;
 
-let score=0, missed=0, combo=1, level=1;
-let dataPoints=[], products=[], spawnTimer=null, gameTimer=null, tickInterval=null;
-let timeLeft=GAME_DURATION, gameRunning=false;
-let comboTimeout=null;
+            // 2. Scan for and process enemy group captures
+            const opponent = currentPlayer === 'B' ? 'W' : 'B';
+            let capturedAny = false;
+            let deadStonesGlobal = [];
 
-const canvas = document.getElementById('spc-canvas');
-const ctx = canvas.getContext('2d');
-const container = document.getElementById('products-container');
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (board[i][j] === opponent) {
+                        const { group, liberties } = getGroupMetrics(i, j);
+                        if (liberties === 0) {
+                            deadStonesGlobal = deadStonesGlobal.concat(group);
+                            capturedAny = true;
+                        }
+                    }
+                }
+            }
 
-function rand(min,max){ return min + Math.random()*(max-min); }
-function clamp(v,mn,mx){ return Math.max(mn,Math.min(mx,v)); }
+            // Remove duplicates from the captured coordinate tracking array
+            const uniqueDeadStones = Array.from(new Set(deadStonesGlobal.map(p => `${p.r},${p.c}`)))
+                                          .map(str => { const [x, y] = str.split(','); return {r: parseInt(x), c: parseInt(y)}; });
 
-function generateValue(forceDefect){
-  if(forceDefect){
-    const side = Math.random()<0.5?1:-1;
-    return MEAN + side*(3*SIGMA + rand(1,15));
-  }
-  return MEAN + (Math.random()-0.5)*2*2*SIGMA;
-}
+            uniqueDeadStones.forEach(p => {
+                board[p.r][p.c] = null;
+                captures[currentPlayer]++;
+            });
 
-function isDefect(v){ return v > UCL || v < LCL; }
+            // 3. Rule Protection: Suicide Check (Self-capture condition check)
+            if (!capturedAny) {
+                const selfGroup = getGroupMetrics(r, c);
+                if (selfGroup.liberties === 0) {
+                    board[r][c] = null; // Revert placement
+                    showAlert("Invalid Move: Suicide Rule!");
+                    return;
+                }
+            }
 
-function drawChart(){
-  const W = canvas.parentElement.clientWidth - 24;
-  canvas.width = W; canvas.height = 150;
-  const pad = {l:36,r:12,t:12,b:24};
-  const cw=W-pad.l-pad.r, ch=150-pad.t-pad.b;
-  const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
-  const textCol = isDark ? '#B4B2A9':'#444441';
-  const gridCol = isDark ? 'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)';
-  ctx.clearRect(0,0,W,150);
+            // 4. Update Board Display UI elements 
+            renderStones();
+            updateScores();
+            
+            // Switch current actively operating player status
+            currentPlayer = opponent;
+            document.body.className = currentPlayer === 'B' ? 'black-turn' : 'white-turn';
+            document.getElementById('turnText').innerText = `${currentPlayer === 'B' ? 'Black' : 'White'}'s Turn`;
+        }
 
-  const yMin=0,yMax=100;
-  function fy(v){ return pad.t + ch*(1-(v-yMin)/(yMax-yMin)); }
-  function fx(i){ return pad.l + i*(cw/Math.max(dataPoints.length-1,1)); }
+        // Flood-Fill Algorithm implementation to evaluate specific structural liberties
+        function getGroupMetrics(startRow, startCol) {
+            const color = board[startRow][startCol];
+            const group = [];
+            const liberties = new Set();
+            const visited = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(false));
+            const queue = [{r: startRow, c: startCol}];
 
-  [UCL,LCL,WARN_U,WARN_L,MEAN].forEach(line=>{
-    ctx.beginPath();
-    ctx.moveTo(pad.l, fy(line)); ctx.lineTo(pad.l+cw, fy(line));
-    if(line===UCL||line===LCL){
-      ctx.strokeStyle='#639922'; ctx.lineWidth=1.5;
-      ctx.setLineDash([6,4]);
-    } else if(line===MEAN){
-      ctx.strokeStyle='#185FA5'; ctx.lineWidth=1;
-      ctx.setLineDash([]);
-    } else {
-      ctx.strokeStyle='#EF9F27'; ctx.lineWidth=0.8;
-      ctx.setLineDash([3,3]);
-    }
-    ctx.stroke(); ctx.setLineDash([]);
-  });
+            visited[startRow][startCol] = true;
 
-  ctx.fillStyle=textCol; ctx.font='10px Nunito,sans-serif'; ctx.textAlign='right';
-  [[UCL,'UCL'],[LCL,'LCL'],[MEAN,'μ']].forEach(([v,lbl])=>{
-    ctx.fillText(lbl+' '+Math.round(v), pad.l-3, fy(v)+3);
-  });
+            while (queue.length > 0) {
+                const curr = queue.shift();
+                group.push(curr);
 
-  if(dataPoints.length>1){
-    ctx.beginPath();
-    dataPoints.forEach((p,i)=>{
-      if(i===0) ctx.moveTo(fx(i),fy(p.v));
-      else ctx.lineTo(fx(i),fy(p.v));
-    });
-    ctx.strokeStyle=isDark?'rgba(180,178,169,0.4)':'rgba(136,135,128,0.4)';
-    ctx.lineWidth=1.2; ctx.stroke();
-  }
+                // Check 4 Orthogonal neighbors
+                const neighbors = [
+                    {r: curr.r - 1, c: curr.c},
+                    {r: curr.r + 1, c: curr.c},
+                    {r: curr.r, c: curr.c - 1},
+                    {r: curr.r, c: curr.c + 1}
+                ];
 
-  dataPoints.forEach((p,i)=>{
-    const x=fx(i), y=fy(p.v);
-    ctx.beginPath();
-    ctx.arc(x,y,4,0,Math.PI*2);
-    ctx.fillStyle = isDefect(p.v)?'#E24B4A':'#185FA5';
-    ctx.fill();
-    if(p.clicked){
-      ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
-      ctx.strokeStyle='#639922'; ctx.lineWidth=1.5; ctx.stroke();
-    }
-  });
+                neighbors.forEach(n => {
+                    if (n.r >= 0 && n.r < BOARD_SIZE && n.c >= 0 && n.c < BOARD_SIZE) {
+                        if (board[n.r][n.c] === null) {
+                            liberties.add(`${n.r},${n.c}`);
+                        } else if (board[n.r][n.c] === color && !visited[n.r][n.c]) {
+                            visited[n.r][n.c] = true;
+                            queue.push(n);
+                        }
+                    }
+                });
+            }
 
-  ctx.strokeStyle=isDark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.1)';
-  ctx.lineWidth=0.5; ctx.setLineDash([]);
-  ctx.strokeRect(pad.l,pad.t,cw,ch);
-}
+            return { group, liberties: liberties.size };
+        }
 
-function spawnProduct(){
-  const forceDefect = Math.random() < (0.25 + level*0.04);
-  const val = generateValue(forceDefect);
-  const defect = isDefect(val);
+        function renderStones() {
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const targetCell = document.getElementById(`cell-${r}-${c}`);
+                    targetCell.innerHTML = ''; // Wipe element children cleanly
 
-  dataPoints.push({v: clamp(val,2,98), clicked:false});
-  if(dataPoints.length > 40) dataPoints.shift();
-  drawChart();
+                    if (board[r][c] !== null) {
+                        const stone = document.createElement('div');
+                        stone.classList.add('stone', board[r][c] === 'B' ? 'black' : 'white');
+                        targetCell.appendChild(stone);
+                    }
+                }
+            }
+        }
 
-  const conveyorW = container.parentElement.clientWidth - 24;
-  const el = document.createElement('div');
-  el.className = 'product' + (defect?' defective':'');
-  el.textContent = defect ? EMOJIS_BAD[Math.floor(Math.random()*EMOJIS_BAD.length)]
-                          : EMOJIS_OK[Math.floor(Math.random()*EMOJIS_OK.length)];
-  el.style.left = (conveyorW - 40) + 'px';
-  el.dataset.defect = defect;
-  el.dataset.val = val.toFixed(1);
-  container.appendChild(el);
+        function passTurn() {
+            clearAlert();
+            currentPlayer = currentPlayer === 'B' ? 'W' : 'B';
+            document.body.className = currentPlayer === 'B' ? 'black-turn' : 'white-turn';
+            document.getElementById('turnText').innerText = `${currentPlayer === 'B' ? 'Black' : 'White'}'s Turn`;
+            showAlert(`Player passed turn.`);
+        }
 
-  const obj = {el, x: conveyorW-40, defect, val, speed: 60+level*15+Math.random()*20, id: Date.now()+Math.random()};
-  products.push(obj);
+        function updateScores() {
+            document.getElementById('blackCaptures').innerText = captures['B'];
+            document.getElementById('whiteCaptures').innerText = captures['W'];
+        }
 
-  el.addEventListener('click', ()=>{ if(!gameRunning) return; onClickProduct(obj); });
+        function showAlert(msg) {
+            document.getElementById('alertMsg').innerText = msg;
+        }
 
-  const delay = Math.max(800, 2200 - level*150 - Math.random()*200);
-  spawnTimer = setTimeout(spawnProduct, delay);
-}
+        function clearAlert() {
+            document.getElementById('alertMsg').innerText = '';
+        }
 
-function onClickProduct(obj){
-  if(obj.removed) return;
-  obj.removed = true;
-  const lastDP = dataPoints[dataPoints.length-1];
-  if(lastDP) lastDP.clicked = obj.defect;
-
-  if(obj.defect){
-    combo = Math.min(combo+1,8);
-    score += 10 * combo;
-    showFeedback(obj.el, '+'+10*combo, '#185FA5');
-    document.getElementById('score-val').textContent = score;
-    document.getElementById('combo-val').textContent = 'x'+combo;
-    resetComboTimer();
-  } else {
-    combo=1;
-    missed++;
-    document.getElementById('missed-val').textContent = missed;
-    document.getElementById('combo-val').textContent = 'x1';
-    showFeedback(obj.el, '✗ Good', '#E24B4A');
-    if(missed>=5) endGame();
-  }
-
-  obj.el.className = 'product clicked';
-  setTimeout(()=>{ obj.el.remove(); drawChart(); }, 350);
-  products = products.filter(p=>p!==obj);
-  level = 1+Math.floor(score/100);
-  document.getElementById('level-val').textContent = level;
-}
-
-function showFeedback(el, text, color){
-  const fb = document.createElement('div');
-  fb.className='hit-feedback';
-  fb.style.cssText=`color:${color};left:${el.offsetLeft}px;top:${el.offsetTop-10}px;font-size:13px`;
-  fb.textContent=text;
-  container.appendChild(fb);
-  setTimeout(()=>fb.remove(),800);
-}
-
-function resetComboTimer(){
-  clearTimeout(comboTimeout);
-  comboTimeout = setTimeout(()=>{ combo=1; document.getElementById('combo-val').textContent='x1'; }, 3000);
-}
-
-let animFrame;
-function moveTick(){
-  const conveyorW = container.parentElement.clientWidth - 24;
-  products = products.filter(obj=>{
-    if(obj.removed) return false;
-    obj.x -= obj.speed / 30;
-    obj.el.style.left = obj.x + 'px';
-    if(obj.x < -50){
-      if(obj.defect && !obj.removed){
-        missed++;
-        combo=1;
-        document.getElementById('missed-val').textContent = missed;
-        document.getElementById('combo-val').textContent = 'x1';
-        showFeedback(obj.el,'Missed!','#E24B4A');
-        if(missed>=5){ obj.el.remove(); endGame(); return false; }
-      }
-      obj.el.remove();
-      return false;
-    }
-    return true;
-  });
-  if(gameRunning) animFrame = requestAnimationFrame(moveTick);
-}
-
-function startGame(){
-  gameRunning=true; score=0; missed=0; combo=1; level=1; timeLeft=GAME_DURATION;
-  dataPoints=[]; products.forEach(p=>p.el.remove()); products=[];
-  document.getElementById('score-val').textContent='0';
-  document.getElementById('missed-val').textContent='0';
-  document.getElementById('combo-val').textContent='x1';
-  document.getElementById('level-val').textContent='1';
-  document.getElementById('timer-bar').style.width='100%';
-  document.getElementById('restart-btn').style.display='none';
-  document.getElementById('overlay').style.display='none';
-  document.getElementById('instruction').textContent='Click defective products (outside UCL/LCL)!';
-  container.innerHTML='';
-
-  clearTimeout(spawnTimer);
-  clearInterval(tickInterval);
-  cancelAnimationFrame(animFrame);
-
-  drawChart();
-  spawnProduct();
-  animFrame = requestAnimationFrame(moveTick);
-
-  tickInterval = setInterval(()=>{
-    timeLeft--;
-    document.getElementById('timer-bar').style.width = (timeLeft/GAME_DURATION*100)+'%';
-    if(timeLeft<=0){ clearInterval(tickInterval); endGame(); }
-  },1000);
-}
-
-function endGame(){
-  gameRunning=false;
-  clearTimeout(spawnTimer);
-  clearInterval(tickInterval);
-  cancelAnimationFrame(animFrame);
-  products.forEach(p=>p.el.remove()); products=[];
-
-  const ol = document.getElementById('overlay');
-  ol.style.display='flex';
-  ol.innerHTML = `
-    <span style="font-size:48px">${score>=200?'🏆':score>=100?'🎉':'😅'}</span>
-    <h2 style="font-family:'Fredoka One',sans-serif;font-size:22px;color:var(--color-text-primary)">${missed>=5?'Line Shutdown!':'Time\'s Up!'}</h2>
-    <p style="font-size:14px;color:var(--color-text-primary);font-weight:600">Score: ${score}</p>
-    <p style="font-size:13px;color:var(--color-text-secondary)">Defects missed: ${missed}/5<br>Level reached: ${level}</p>
-    <button onclick="startGame()" style="font-family:'Fredoka One',sans-serif;font-size:16px;font-weight:400;padding:10px 28px;border-radius:var(--border-radius-md);border:none;background:#185FA5;color:#E6F1FB;cursor:pointer;margin-top:8px">🔄 Play Again</button>
-    <button onclick="sendPrompt('Explain how SPC helps detect defective products in manufacturing')" style="font-family:'Fredoka One',sans-serif;font-size:13px;font-weight:400;padding:6px 16px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer">Learn more ↗</button>
-  `;
-}
-
-window.addEventListener('resize', drawChart);
-drawChart();
-</script>
+        function resetGame() {
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+            captures = { 'B': 0, 'W': 0 };
+            currentPlayer = 'B';
+            document.body.className = 'black-turn';
+            document.getElementById('turnText').innerText = "Black's Turn";
+            clearAlert();
+            updateScores();
+            renderStones();
+        }
+    </script>
+</body>
+</html>
