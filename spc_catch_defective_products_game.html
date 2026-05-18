@@ -1,0 +1,441 @@
+
+<h2 class="sr-only">SPC Game: Catch Defective Products — click products that fall outside control limits</h2>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap');
+
+  #spc-game * { box-sizing: border-box; margin: 0; padding: 0; }
+  #spc-game {
+    font-family: 'Nunito', sans-serif;
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-lg);
+    padding: 16px;
+    user-select: none;
+  }
+  #spc-game h1 {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--color-text-primary);
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .spc-subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: 12px;
+  }
+  .spc-stats {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    justify-content: center;
+  }
+  .spc-stat {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 6px 14px;
+    text-align: center;
+    min-width: 80px;
+  }
+  .spc-stat-label { font-size: 11px; color: var(--color-text-tertiary); }
+  .spc-stat-value { font-size: 20px; font-weight: 700; color: var(--color-text-primary); font-family: 'Fredoka One', sans-serif; }
+  .spc-stat-value.score { color: #185FA5; }
+  .spc-stat-value.missed { color: #A32D2D; }
+  .spc-stat-value.combo { color: #0F6E56; }
+
+  #chart-wrap {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px 4px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  #spc-canvas { width: 100%; display: block; }
+
+  .spc-legend {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+    font-size: 12px; color: var(--color-text-secondary);
+    margin-bottom: 8px;
+  }
+  .spc-legend span { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  #conveyor-wrap {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+    height: 100px;
+  }
+  .conveyor-belt {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 18px;
+    background: repeating-linear-gradient(90deg, #888780 0px, #888780 18px, #5F5E5A 18px, #5F5E5A 36px);
+    border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+    animation: beltMove 0.6s linear infinite;
+  }
+  @keyframes beltMove {
+    from { background-position: 0 0; }
+    to { background-position: -36px 0; }
+  }
+  .product {
+    position: absolute;
+    bottom: 20px;
+    cursor: pointer;
+    transition: transform 0.1s;
+    font-size: 32px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.15));
+  }
+  .product:hover { transform: scale(1.15); }
+  .product.defective { animation: wobble 0.4s ease-in-out infinite alternate; }
+  @keyframes wobble { from { rotate: -8deg; } to { rotate: 8deg; } }
+  .product.clicked { animation: pop 0.3s forwards; pointer-events: none; }
+  @keyframes pop { to { transform: scale(2); opacity: 0; } }
+
+  .hit-feedback {
+    position: absolute; font-size: 13px; font-weight: 700;
+    pointer-events: none; animation: floatUp 0.8s forwards;
+  }
+  @keyframes floatUp { to { transform: translateY(-40px); opacity: 0; } }
+
+  .spc-controls { display: flex; gap: 8px; justify-content: center; }
+  .spc-controls button {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 15px; font-weight: 400;
+    padding: 8px 20px;
+    border-radius: var(--border-radius-md);
+    border: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+  .spc-controls button:hover { background: var(--color-background-secondary); }
+  .spc-controls button.primary {
+    background: #185FA5; color: #E6F1FB; border-color: #185FA5;
+  }
+  .spc-controls button.primary:hover { background: #0C447C; }
+
+  #overlay {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.92);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: var(--border-radius-md);
+    z-index: 10; gap: 8px;
+  }
+  #overlay h2 { font-family: 'Fredoka One', sans-serif; font-size: 22px; color: var(--color-text-primary); }
+  #overlay p { font-size: 13px; color: var(--color-text-secondary); text-align: center; max-width: 220px; }
+
+  .instruction-bar {
+    text-align: center; font-size: 12px; color: var(--color-text-tertiary);
+    margin-bottom: 6px;
+  }
+
+  #timer-bar-wrap {
+    height: 5px; background: var(--color-background-secondary);
+    border-radius: 3px; margin-bottom: 10px; overflow: hidden;
+  }
+  #timer-bar {
+    height: 100%; border-radius: 3px;
+    background: #185FA5; transition: width 0.2s linear;
+  }
+</style>
+
+<div id="spc-game">
+  <h1>🏭 SPC Defect Catcher</h1>
+  <p class="spc-subtitle">Tap defective products — those outside control limits!</p>
+
+  <div class="spc-stats">
+    <div class="spc-stat">
+      <div class="spc-stat-label">Score</div>
+      <div class="spc-stat-value score" id="score-val">0</div>
+    </div>
+    <div class="spc-stat">
+      <div class="spc-stat-label">Missed</div>
+      <div class="spc-stat-value missed" id="missed-val">0</div>
+    </div>
+    <div class="spc-stat">
+      <div class="spc-stat-label">Combo</div>
+      <div class="spc-stat-value combo" id="combo-val">x1</div>
+    </div>
+    <div class="spc-stat">
+      <div class="spc-stat-label">Level</div>
+      <div class="spc-stat-value" id="level-val">1</div>
+    </div>
+  </div>
+
+  <div id="timer-bar-wrap"><div id="timer-bar" style="width:100%"></div></div>
+
+  <div id="chart-wrap">
+    <canvas id="spc-canvas" height="150"></canvas>
+    <div id="overlay">
+      <span style="font-size:48px">🏭</span>
+      <h2>SPC Defect Catcher</h2>
+      <p>Click defective products on the conveyor!<br>Products outside control limits are defects.</p>
+      <button class="primary" onclick="startGame()" style="margin-top:6px">▶ Start Game</button>
+    </div>
+  </div>
+
+  <div class="spc-legend">
+    <span><span class="dot" style="background:#185FA5"></span>Normal product</span>
+    <span><span class="dot" style="background:#E24B4A"></span>Defective! (click it)</span>
+    <span><span class="dot" style="background:#3B6D11;opacity:0.5"></span>UCL/LCL limits</span>
+  </div>
+
+  <p class="instruction-bar" id="instruction">Defective products wobble — click them before they pass!</p>
+
+  <div id="conveyor-wrap">
+    <div class="conveyor-belt"></div>
+    <div id="products-container"></div>
+  </div>
+
+  <div class="spc-controls">
+    <button onclick="sendPrompt('Explain SPC control limits and how to detect defects')">Learn SPC ↗</button>
+    <button class="primary" id="restart-btn" onclick="startGame()" style="display:none">🔄 Play Again</button>
+  </div>
+</div>
+
+<script>
+const MEAN = 50, SIGMA = 8;
+const UCL = MEAN + 3*SIGMA, LCL = MEAN - 3*SIGMA;
+const WARN_U = MEAN + 2*SIGMA, WARN_L = MEAN - 2*SIGMA;
+const GAME_DURATION = 45;
+const EMOJIS_OK = ['📦','🧴','🔩','⚙️','🧊','🪣','🎁'];
+const EMOJIS_BAD = ['💥','🗑️','⚠️','🔴','💢','❌','🤢'];
+
+let score=0, missed=0, combo=1, level=1;
+let dataPoints=[], products=[], spawnTimer=null, gameTimer=null, tickInterval=null;
+let timeLeft=GAME_DURATION, gameRunning=false;
+let comboTimeout=null;
+
+const canvas = document.getElementById('spc-canvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('products-container');
+
+function rand(min,max){ return min + Math.random()*(max-min); }
+function clamp(v,mn,mx){ return Math.max(mn,Math.min(mx,v)); }
+
+function generateValue(forceDefect){
+  if(forceDefect){
+    const side = Math.random()<0.5?1:-1;
+    return MEAN + side*(3*SIGMA + rand(1,15));
+  }
+  return MEAN + (Math.random()-0.5)*2*2*SIGMA;
+}
+
+function isDefect(v){ return v > UCL || v < LCL; }
+
+function drawChart(){
+  const W = canvas.parentElement.clientWidth - 24;
+  canvas.width = W; canvas.height = 150;
+  const pad = {l:36,r:12,t:12,b:24};
+  const cw=W-pad.l-pad.r, ch=150-pad.t-pad.b;
+  const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
+  const textCol = isDark ? '#B4B2A9':'#444441';
+  const gridCol = isDark ? 'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)';
+  ctx.clearRect(0,0,W,150);
+
+  const yMin=0,yMax=100;
+  function fy(v){ return pad.t + ch*(1-(v-yMin)/(yMax-yMin)); }
+  function fx(i){ return pad.l + i*(cw/Math.max(dataPoints.length-1,1)); }
+
+  [UCL,LCL,WARN_U,WARN_L,MEAN].forEach(line=>{
+    ctx.beginPath();
+    ctx.moveTo(pad.l, fy(line)); ctx.lineTo(pad.l+cw, fy(line));
+    if(line===UCL||line===LCL){
+      ctx.strokeStyle='#639922'; ctx.lineWidth=1.5;
+      ctx.setLineDash([6,4]);
+    } else if(line===MEAN){
+      ctx.strokeStyle='#185FA5'; ctx.lineWidth=1;
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle='#EF9F27'; ctx.lineWidth=0.8;
+      ctx.setLineDash([3,3]);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+
+  ctx.fillStyle=textCol; ctx.font='10px Nunito,sans-serif'; ctx.textAlign='right';
+  [[UCL,'UCL'],[LCL,'LCL'],[MEAN,'μ']].forEach(([v,lbl])=>{
+    ctx.fillText(lbl+' '+Math.round(v), pad.l-3, fy(v)+3);
+  });
+
+  if(dataPoints.length>1){
+    ctx.beginPath();
+    dataPoints.forEach((p,i)=>{
+      if(i===0) ctx.moveTo(fx(i),fy(p.v));
+      else ctx.lineTo(fx(i),fy(p.v));
+    });
+    ctx.strokeStyle=isDark?'rgba(180,178,169,0.4)':'rgba(136,135,128,0.4)';
+    ctx.lineWidth=1.2; ctx.stroke();
+  }
+
+  dataPoints.forEach((p,i)=>{
+    const x=fx(i), y=fy(p.v);
+    ctx.beginPath();
+    ctx.arc(x,y,4,0,Math.PI*2);
+    ctx.fillStyle = isDefect(p.v)?'#E24B4A':'#185FA5';
+    ctx.fill();
+    if(p.clicked){
+      ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
+      ctx.strokeStyle='#639922'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  });
+
+  ctx.strokeStyle=isDark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.1)';
+  ctx.lineWidth=0.5; ctx.setLineDash([]);
+  ctx.strokeRect(pad.l,pad.t,cw,ch);
+}
+
+function spawnProduct(){
+  const forceDefect = Math.random() < (0.25 + level*0.04);
+  const val = generateValue(forceDefect);
+  const defect = isDefect(val);
+
+  dataPoints.push({v: clamp(val,2,98), clicked:false});
+  if(dataPoints.length > 40) dataPoints.shift();
+  drawChart();
+
+  const conveyorW = container.parentElement.clientWidth - 24;
+  const el = document.createElement('div');
+  el.className = 'product' + (defect?' defective':'');
+  el.textContent = defect ? EMOJIS_BAD[Math.floor(Math.random()*EMOJIS_BAD.length)]
+                          : EMOJIS_OK[Math.floor(Math.random()*EMOJIS_OK.length)];
+  el.style.left = (conveyorW - 40) + 'px';
+  el.dataset.defect = defect;
+  el.dataset.val = val.toFixed(1);
+  container.appendChild(el);
+
+  const obj = {el, x: conveyorW-40, defect, val, speed: 60+level*15+Math.random()*20, id: Date.now()+Math.random()};
+  products.push(obj);
+
+  el.addEventListener('click', ()=>{ if(!gameRunning) return; onClickProduct(obj); });
+
+  const delay = Math.max(800, 2200 - level*150 - Math.random()*200);
+  spawnTimer = setTimeout(spawnProduct, delay);
+}
+
+function onClickProduct(obj){
+  if(obj.removed) return;
+  obj.removed = true;
+  const lastDP = dataPoints[dataPoints.length-1];
+  if(lastDP) lastDP.clicked = obj.defect;
+
+  if(obj.defect){
+    combo = Math.min(combo+1,8);
+    score += 10 * combo;
+    showFeedback(obj.el, '+'+10*combo, '#185FA5');
+    document.getElementById('score-val').textContent = score;
+    document.getElementById('combo-val').textContent = 'x'+combo;
+    resetComboTimer();
+  } else {
+    combo=1;
+    missed++;
+    document.getElementById('missed-val').textContent = missed;
+    document.getElementById('combo-val').textContent = 'x1';
+    showFeedback(obj.el, '✗ Good', '#E24B4A');
+    if(missed>=5) endGame();
+  }
+
+  obj.el.className = 'product clicked';
+  setTimeout(()=>{ obj.el.remove(); drawChart(); }, 350);
+  products = products.filter(p=>p!==obj);
+  level = 1+Math.floor(score/100);
+  document.getElementById('level-val').textContent = level;
+}
+
+function showFeedback(el, text, color){
+  const fb = document.createElement('div');
+  fb.className='hit-feedback';
+  fb.style.cssText=`color:${color};left:${el.offsetLeft}px;top:${el.offsetTop-10}px;font-size:13px`;
+  fb.textContent=text;
+  container.appendChild(fb);
+  setTimeout(()=>fb.remove(),800);
+}
+
+function resetComboTimer(){
+  clearTimeout(comboTimeout);
+  comboTimeout = setTimeout(()=>{ combo=1; document.getElementById('combo-val').textContent='x1'; }, 3000);
+}
+
+let animFrame;
+function moveTick(){
+  const conveyorW = container.parentElement.clientWidth - 24;
+  products = products.filter(obj=>{
+    if(obj.removed) return false;
+    obj.x -= obj.speed / 30;
+    obj.el.style.left = obj.x + 'px';
+    if(obj.x < -50){
+      if(obj.defect && !obj.removed){
+        missed++;
+        combo=1;
+        document.getElementById('missed-val').textContent = missed;
+        document.getElementById('combo-val').textContent = 'x1';
+        showFeedback(obj.el,'Missed!','#E24B4A');
+        if(missed>=5){ obj.el.remove(); endGame(); return false; }
+      }
+      obj.el.remove();
+      return false;
+    }
+    return true;
+  });
+  if(gameRunning) animFrame = requestAnimationFrame(moveTick);
+}
+
+function startGame(){
+  gameRunning=true; score=0; missed=0; combo=1; level=1; timeLeft=GAME_DURATION;
+  dataPoints=[]; products.forEach(p=>p.el.remove()); products=[];
+  document.getElementById('score-val').textContent='0';
+  document.getElementById('missed-val').textContent='0';
+  document.getElementById('combo-val').textContent='x1';
+  document.getElementById('level-val').textContent='1';
+  document.getElementById('timer-bar').style.width='100%';
+  document.getElementById('restart-btn').style.display='none';
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('instruction').textContent='Click defective products (outside UCL/LCL)!';
+  container.innerHTML='';
+
+  clearTimeout(spawnTimer);
+  clearInterval(tickInterval);
+  cancelAnimationFrame(animFrame);
+
+  drawChart();
+  spawnProduct();
+  animFrame = requestAnimationFrame(moveTick);
+
+  tickInterval = setInterval(()=>{
+    timeLeft--;
+    document.getElementById('timer-bar').style.width = (timeLeft/GAME_DURATION*100)+'%';
+    if(timeLeft<=0){ clearInterval(tickInterval); endGame(); }
+  },1000);
+}
+
+function endGame(){
+  gameRunning=false;
+  clearTimeout(spawnTimer);
+  clearInterval(tickInterval);
+  cancelAnimationFrame(animFrame);
+  products.forEach(p=>p.el.remove()); products=[];
+
+  const ol = document.getElementById('overlay');
+  ol.style.display='flex';
+  ol.innerHTML = `
+    <span style="font-size:48px">${score>=200?'🏆':score>=100?'🎉':'😅'}</span>
+    <h2 style="font-family:'Fredoka One',sans-serif;font-size:22px;color:var(--color-text-primary)">${missed>=5?'Line Shutdown!':'Time\'s Up!'}</h2>
+    <p style="font-size:14px;color:var(--color-text-primary);font-weight:600">Score: ${score}</p>
+    <p style="font-size:13px;color:var(--color-text-secondary)">Defects missed: ${missed}/5<br>Level reached: ${level}</p>
+    <button onclick="startGame()" style="font-family:'Fredoka One',sans-serif;font-size:16px;font-weight:400;padding:10px 28px;border-radius:var(--border-radius-md);border:none;background:#185FA5;color:#E6F1FB;cursor:pointer;margin-top:8px">🔄 Play Again</button>
+    <button onclick="sendPrompt('Explain how SPC helps detect defective products in manufacturing')" style="font-family:'Fredoka One',sans-serif;font-size:13px;font-weight:400;padding:6px 16px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer">Learn more ↗</button>
+  `;
+}
+
+window.addEventListener('resize', drawChart);
+drawChart();
+</script>
